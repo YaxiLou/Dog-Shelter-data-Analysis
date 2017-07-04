@@ -1,0 +1,393 @@
+---
+title: "141SL R Code"
+author: "Xin Jin, Yaxi Lou, April Yang, Sherry Yang, Yu Zhang"
+date: "6/12/2017"
+output: pdf_document
+---
+
+```{r reading in data sets}
+setwd("~/Documents/STATLAB/STATS141/Final Project")
+library(readr)
+library(dplyr)
+library(tidyr)
+intake <- read_csv("Austin Animal Center FY15 Intakes Updated Hourly.csv")
+outcome <- read_csv("Austin Animal Center FY15 Outcomes Updated Hourly.csv")
+c <- which(intake$`Animal Type` == "Injured" | intake$`Animal Type` == "Normal"|
+        intake$`Animal Type` == "Sick" | intake$`Animal Type` == "Stray")
+length(c)
+intake <- intake[-c,]
+
+dogs <- merge(intake, outcome, by = c("Animal ID", "Animal Type", "Breed", "Color"), all = FALSE)
+dogs <- dogs[dogs$`Animal Type` == "Dog", ]
+dogs <-dogs[!duplicated(dogs$`Animal ID`),]
+```
+
+```{r time spent}
+dogs$`Intake Date`<- as.Date(dogs$`Intake Date`,"%m/%d/%y")
+dogs$`Outcome Date`<- as.Date(dogs$`Outcome Date`,"%m/%d/%y")
+dogs$time_diff <- dogs$`Outcome Date`- dogs$`Intake Date`
+dogs<- dogs[which(dogs$time_diff>=0),]
+```
+
+```{r size}
+dogs$Breed <- toupper(dogs$Breed)
+index <- grep("/", dogs$Breed)
+withslash <- dogs[index, ]
+withslash <- separate(withslash, Breed, c("1dog","2dog"), sep = "/")
+woutslash <- dogs[-index, ]
+woutslash <- as.data.frame(woutslash)
+
+woutslash$Size <- "null"
+woutslash$Size[grep("Dachshund", woutslash$Breed)] <- "S"
+woutslash$Size[grep("Chihuahua", woutslash$Breed)] <- "S"
+woutslash$Size[grep("Terrier", woutslash$Breed)] <- "S"
+woutslash$Size[grep("Poodle", woutslash$Breed)] <- "S"
+ 
+woutslash$Size[grep("Boxer", woutslash$Breed)] <- "L"
+woutslash$Size[grep("Catahoula", woutslash$Breed)] <- "L"
+woutslash$Size[grep("Retriever", woutslash$Breed)] <- "L"
+woutslash$Size[grep("Shepherd", woutslash$Breed)] <- "L"
+ 
+woutslash$Size[grep("Corgi", woutslash$Breed)] <- "M"
+woutslash$Size[grep("Husky", woutslash$Breed)] <- "M"
+woutslash$Size[grep("Collie", woutslash$Breed)] <- "M"
+woutslash$Size[grep("Schnauzer", woutslash$Breed)] <- "M"
+woutslash$Size[grep("Pit Bull", woutslash$Breed)] <- "M"
+
+dog1 <- withslash$`1dog`
+dog1 <- as.data.frame(dog1)
+dog1$dog1 <- as.character(dog1$dog1)
+dog1$Size <- "null"
+ 
+dog1$Size[grep("Dachshund", dog1$dog1)] <- "S"
+dog1$Size[grep("Chihuahua", dog1$dog1)] <- "S"
+dog1$Size[grep("Terrier", dog1$dog1)] <- "S"
+dog1$Size[grep("Poodle", dog1$dog1)] <- "S"
+ 
+dog1$Size[grep("Boxer", dog1$dog1)] <- "L"
+dog1$Size[grep("Catahoula", dog1$dog1)] <- "L"
+dog1$Size[grep("Retriever", dog1$dog1)] <- "L"
+dog1$Size[grep("Shepherd", dog1$dog1)] <- "L"
+ 
+dog1$Size[grep("Corgi", dog1$dog1)] <- "M"
+dog1$Size[grep("Husky", dog1$dog1)] <- "M"
+dog1$Size[grep("Collie", dog1$dog1)] <- "M"
+dog1$Size[grep("Schnauzer", dog1$dog1)] <- "M"
+dog1$Size[grep("Pit Bull", dog1$dog1)] <- "M"
+
+dog2 <- withslash$`2dog`
+dog2 <- as.data.frame(dog2)
+dog2$dog2 <- as.character(dog2$dog2)
+dog2$Size <- "null"
+ 
+dog2$Size[grep("Dachshund", dog2$dog2)] <- "S"
+dog2$Size[grep("Chihuahua", dog2$dog2)] <- "S"
+dog2$Size[grep("Terrier", dog2$dog2)] <- "S"
+dog2$Size[grep("Poodle", dog2$dog2)] <- "S"
+ 
+dog2$Size[grep("Boxer", dog2$dog2)] <- "L"
+dog2$Size[grep("Catahoula", dog2$dog2)] <- "L"
+dog2$Size[grep("Retriever", dog2$dog2)] <- "L"
+dog2$Size[grep("Shepherd", dog2$dog2)] <- "L"
+ 
+dog2$Size[grep("Corgi", dog2$dog2)] <- "M"
+dog2$Size[grep("Husky", dog2$dog2)] <- "M"
+dog2$Size[grep("Collie", dog2$dog2)] <- "M"
+dog2$Size[grep("Schnauzer", dog2$dog2)] <- "M"
+dog2$Size[grep("Pit Bull", dog2$dog2)] <- "M"
+ 
+ 
+dog1$fsize <- ifelse(dog1$Size == dog2$Size, dog1$Size, "M")
+withslash$Size <- dog1$fsize
+
+withslash <- withslash[, -c(3,4)]
+woutslash <- woutslash[, -3]
+dogs <- rbind(withslash,woutslash)
+```
+
+```{r gender}
+dogs$sterilize <- "null"
+dogs$sterilize[which(dogs$`Sex upon Intake`=="Intact Female")] <- "N"
+dogs$sterilize[which(dogs$`Sex upon Intake`=="Intact Male")] <- "N"
+dogs$sterilize[which(dogs$`Sex upon Intake`=="Spayed Female")] <- "Y"
+dogs$sterilize[which(dogs$`Sex upon Intake`=="Neutered Male")] <- "Y"
+
+index <- which(dogs$`Sex upon Intake`=="Unknown")
+length(index)
+index <- sample(index)
+index_n <- index[1:21]
+index_y <- index[22:69]
+ 
+dogs$sterilize[index_n] <- "N"
+dogs$sterilize[index_y] <- "Y"
+```
+
+```{r Outcome}
+dogs$Outcome <- ifelse(dogs$`Outcome Type` == "Euthanasia", "Died",
+                            ifelse(dogs$`Outcome Type` == "Return to Owner", "other",
+                                   ifelse(dogs$`Outcome Type` == "Transfer", "other",dogs$`Outcome Type`)))
+ 
+list <- which(dogs$`Outcome Type` == "Missing" |dogs$`Outcome Type` == "Disposal")
+dogs <- dogs[-list, ]
+```
+
+```{r age range}
+dogs <- separate(dogs, `Age upon Outcome`, c("days", "units"), sep = " ")
+dogs$rage <- ifelse(dogs$units == "weeks" | dogs$units == "week" | dogs$units == "days" | dogs$units == "day" | dogs$units == "month" | dogs$units == "months", "baby", "null")
+ 
+null <- dogs[dogs$rage == "null", ]
+notnull <- dogs[dogs$rage != "null", ]
+null$units[null$units == "year"] <- "years"
+null$rage <- ifelse(null$days >=1 & null$days <= 3, "teen",
+                    ifelse(null$days >=4 & null$days <= 8, "adults",
+                           ifelse(null$days == 0, "baby", "elder")))
+dogs <- rbind(null,notnull)
+dogs$units[dogs$units == "year"] <- "years"
+dogs$units[dogs$units == "week"] <- "weeks"
+dogs$units[dogs$units == "day"] <- "days"
+dogs$units[dogs$units == "month"] <- "month"
+dogs <- unite(dogs, "Age_upon_Outcome", days, units, sep = " ")
+ 
+dogs <- separate(dogs, `Age upon Intake`, c("days", "units"), sep = " ")
+dogs$units[dogs$units == "year"] <- "years"
+dogs$units[dogs$units == "week"] <- "weeks"
+dogs$units[dogs$units == "day"] <- "days"
+dogs$units[dogs$units == "month"] <- "month"
+dogs <- unite(dogs, "Age_upon_Intake", days, units, sep = " ")
+```
+
+```{r intake condition}
+dogs$`Intake Condition` <-ifelse(dogs$`Intake Condition` == "Sick", "Injured", 
+                               ifelse(dogs$`Intake Condition` == "Aged" | dogs$`Intake Condition` == "Nursing" , "Other", dogs$`Intake Condition`))
+list <- which(dogs$`Intake Condition` == "Feral" | dogs$`Intake Condition` == "Pregnant")
+dogs <- dogs[-list, ]
+```
+
+```{r}
+dogs$level <- ifelse(dogs$time_diff <=5, 1,ifelse(dogs$time_diff >=11, 3,2))
+dogs$rage <- ifelse(dogs$rage == "elder", "adults", dogs$rage)
+list <- which(dogs$Size == "null")
+dogs <- dogs[-list, ]
+dogs <- dogs[, -c(1:7,10:15, 17:18)]
+names(dogs) <- c("Intake_Type", "Intake_Condition", "Outcome_subtype", "time_diff", "Size", "sterilize", "Outcome", "rage", "time_spent")
+```
+
+```{r}
+died <- subset(dogs, (Outcome=="Adoption" | Outcome=="Died"))
+died$if_died <- rep(0,nrow(died))
+for(i in 1:nrow(died)){
+  if(died[i,10] == "Died"){
+    died[i,13]<- 1
+  }
+}
+gm.died <- glm(if_died~Intake_Type+Intake_Condition+time_spent+rage+Size+sterilize,data=died,family=binomial)
+summary(gm.died)
+coef1 <- coef(gm.died)
+exp(coef1)
+
+adopted <- subset(dogs, (Outcome=="Adoption" | Outcome=="other"))
+adopted$if_adopted <- rep(0,nrow(adopted))
+for(i in 1:nrow(adopted)){
+  if(adopted[i,10] == "Adoption"){
+    adopted[i,13]<- 1
+  }
+}
+
+gm2 <- glm(if_adopted~Intake_Type+Intake_Condition+time_spent+rage+Size+sterilize,data=adopted_train,family=binomial)
+summary(gm2)
+```
+
+```{r chunkTest2, echo=FALSE, results="asis"}
+library(xtable)
+died.table <- xtable(gm.died)
+print(died.table,type="latex")
+table2 <- xtable(gm.adopted)
+print(table2,type="latex")
+```
+
+```{r results="asis"}
+library(xtable)
+options(xtable.comment = FALSE)
+print(xtable(data.frame(Sterilization = c("Yes","No"),Frequency = c(5426,2368)),digits=0))
+ 
+print(xtable(data.frame(Size = c("Small","Medium","Large"), Frequency = c(3122,2097, 2575)),digits=0))
+ 
+print(xtable(data.frame(AgeRange = c("Baby","Teen","Adults"), 
+                        Frequency = c(2425,3889, 1480),
+                        row.names = c("less than 1 year","1-3 year", "3+ year")),digits=0))
+```
+
+```{r}
+library(ggplot2)
+g <- ggplot(dogs, aes(x=Outcome, y= time_diff, fill = Outcome)) + geom_boxplot()
+g + scale_fill_brewer(palette = "Pastel2") + ylab("Time Spent in Shelter") +
+  scale_y_continuous(limits = c(0,15)) +
+  theme(axis.text.x = element_text(face="bold"), axis.text.y = element_text(face="bold"))
+ 
+dogs$Outcome <- as.factor(dogs$Outcome)
+ggplot(dogs, aes(x=time_diff, fill= Outcome)) + 
+  geom_histogram(position = "identity", alpha=0.4) + xlab("Time Spent in Shelter")+
+  theme(axis.text.x = element_text(face="bold"), axis.text.y = element_text(face="bold"))
+ 
+ggplot(dogs, aes(x= rage, fill = sterilize)) + geom_bar() + 
+  scale_fill_brewer(palette = "Pastel2") + xlab("Age Range") + ylab("Frequency") + theme(axis.text.x = element_text(face="bold"), axis.text.y = element_text(face="bold"))
+ 
+ggplot(dogs, aes(x= Size, fill = Outcome)) + geom_bar() + 
+  scale_fill_brewer(palette = "Pastel2") + xlab("Size of the Dogs") + ylab("Frequency") +
+  theme(axis.text.x = element_text(face="bold"), axis.text.y = element_text(face="bold"))
+ 
+ggplot(dogs, aes(Outcome,fill=Intake_Type)) + 
+  geom_bar(aes(y = (..count..)/ sapply(PANEL, FUN=function(x) sum(count[PANEL == x])))) +
+  scale_fill_brewer(palette = "Pastel2") +
+  facet_wrap(~ Intake_Type)+  labs(y = 'Frequency', x = 'Outcome') +
+     theme(axis.text.x = element_text(face="bold")) 
+ 
+ggplot(final, aes(x=Outcome_Type, fill= Outcome_Type)) + 
+  geom_bar() + xlab("Outcome Type of Original Data")+
+  scale_fill_brewer(palette = "Pastel2") +
+  theme(axis.text.x = element_text(face="bold", angle = 45), axis.text.y = element_text(face="bold")) 
+
+```
+
+```{r}
+load("FinalDataSet.RData")
+a <- grep("American Staffordshire Terrier", final$Breed)
+b <- grep("Pit", final$Breed)
+
+final$Breed[c(a,b)] <- "Pit_Bull"
+final$Breed[-c(a,b)] <- "Non_Pit_Bull"
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+ 
+bybreed = group_by(final,Breed,rage,Outcome)
+sumc = summarise(bybreed,count = n())
+ 
+ggplot(sumc, aes(x = rage, y = count, fill = Outcome)) +
+  geom_bar(stat = 'identity', position = 'fill', colour = 'black') +
+  facet_wrap(~Breed) +
+  coord_flip() +
+  labs(x = 'age', 
+       y = 'Percentage',
+       title = 'Outcome by Age: Pit Bull Vs Non Pit Bull') 
+ 
+ 
+bybreed2 = group_by(final,Breed,Outcome)
+sumc2 = summarise(bybreed2,count = n())
+ 
+ggplot(sumc2, aes(x = Breed, y = count, fill = Outcome)) +
+  geom_bar(stat = 'identity', position = 'fill', colour = 'black') +
+  coord_flip() +
+  labs(x = 'Pit Bull Vs Non Pit Bull', 
+       y = 'Percentage',
+       title = 'Outcome by Pit Bull Vs Non Pit Bull') 
+table(final$Breed,final$Outcome)
+table(final$rage,final$Outcome,final$Breed)
+ 
+ 
+bybreed3 = group_by(final,Breed,Intake_Condition,Outcome)
+sumc = summarise(bybreed3,count = n())
+ 
+ggplot(sumc, aes(x = Intake_Condition, y = count, fill = Outcome)) +
+  geom_bar(stat = 'identity', position = 'fill', colour = 'black') +
+  facet_wrap(~Breed) +
+  coord_flip() +
+  labs(x = 'Intake Condition', 
+       y = 'Percentage',
+       title = 'Outcome by Intake Condition: Pit Bull Vs Non Pit Bull') 
+ 
+bybreed5 = group_by(final,Breed,sterilize,Outcome)
+sumc = summarise(bybreed5,count = n())
+ 
+ggplot(sumc, aes(x = sterilize, y = count, fill = Outcome)) +
+  geom_bar(stat = 'identity', position = 'fill', colour = 'black') +
+  facet_wrap(~Breed) +
+  coord_flip() +
+  labs(x = 'sterilize', 
+       y = 'Percentage',
+       title = 'Outcome by Sterilization: Pit Bull Vs Non Pit Bull') 
+ 
+ 
+bybreed6 = group_by(final,Breed,time_spent,Outcome)
+sumc = summarise(bybreed6,count = n())
+ 
+ggplot(sumc, aes(x = time_spent, y = count, fill = Outcome)) +
+  geom_bar(stat = 'identity', position = 'fill', colour = 'black') +
+  facet_wrap(~Breed) +
+  coord_flip() +
+  labs(x = 'Time Spent in Shelter', 
+       y = 'Percentage',
+       title = 'Outcome by Size: Pit Bull Vs Non Pit Bull') 
+ 
+final_2 <- final[,-c(4:7)]
+final_2[,1] <- as.factor(final_2[,1])
+final_2[,2] <- as.factor(final_2[,2])
+final_2[,3] <- as.factor(final_2[,3])
+final_2[,4] <- as.factor(final_2[,4])
+final_2[,5] <- as.factor(final_2[,5])
+final_2[,6] <- as.factor(final_2[,6])
+final_2[,7] <- as.factor(final_2[,7])
+final_2[,8] <- as.factor(final_2[,8])
+ 
+gm_1 <- glm(as.factor(Breed)~.,data = final_2, family = binomial)
+outcome_sum <- summary(gm_1)
+ 
+gm_4 <- glm(as.factor(Outcome)~.-Intake_Type-Intake_Condition, data = adopt_other, family = binomial)
+summary(gm_4)
+exp(coef(gm_4))
+```
+
+```{r, echo=FALSE, results='asis'}
+library(xtable) 
+library(dplyr)
+ 
+ 
+x.table <- summary(gm_4) %>% xtable()
+print(x.table, comment=FALSE)
+ 
+```
+\begin{tabular}{|r c| }\hline
+\multicolumn {2}{|c|}{Exponentiate the coefficients from model} \\\hline
+(Intercept)&0.84\\
+BreedPit\_Bull&0.34\\
+SizeM&1.32\\
+SizeS&1.40\\
+sterilizeY&1.03\\
+rage2.teen&0.46\\
+rage3.adult&0.27\\
+time\_spent2&2.16\\
+time\_spent3&5.13\\ \hline
+\end{tabular}
+ 
+ 
+ 
+############## Bayesian Classification################
+```{r}
+load("final0602.RData")
+dog<-as.data.frame(dogs[,-c(1,4,5,6,7)])
+dog$time_spent<-as.character(dog$time_spent)
+dog[sapply(dog, is.character)] <- lapply(dog[sapply(dog, is.character)], as.factor)
+table(dog$Outcome)
+library(e1071)
+library(rminer)
+# sample for training dataset and testing dataset
+set.seed(123)
+i.train<-sample(nrow(dog),nrow(dog)*0.8,replace=TRUE)
+train<-dog[i.train,]
+test<-dog[-i.train,]
+# Run Naive Bayesian Classifier model
+model<-naiveBayes(Outcome~.,data=train)
+model
+```
+ 
+```{r}
+# Apply model for prediction
+prediction<-predict(model,test)
+table(prediction)
+# Confusion Matrix
+table(prediction,test$Outcome)
+# Average Training Error rate
+(547+43+551)/3659
+# ACC, Precision, TPR, F1 score
+mmetric(test$Outcome,prediction,c("ACC","PRECISION","TPR","F1"))
+```
